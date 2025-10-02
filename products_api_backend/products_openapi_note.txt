@@ -1,0 +1,3 @@
+This project generates OpenAPI documentation automatically via flask-smorest at /docs.
+The static interfaces/openapi.json was updated only for the health tag name.
+For the latest API schema, refer to the running service at /openapi.json.
