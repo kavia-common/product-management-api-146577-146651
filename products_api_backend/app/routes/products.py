@@ -2,6 +2,7 @@ from http import HTTPStatus
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 from ..db import db
 from ..models import Product
 from ..schemas import ProductCreateSchema, ProductSchema, ProductUpdateSchema
@@ -114,3 +115,44 @@ class ProductDetail(MethodView):
         db.session.delete(product)
         db.session.commit()
         return ""
+
+
+@blp.route("/total_balance")
+class ProductsTotalBalance(MethodView):
+    """
+    PUBLIC_INTERFACE
+    get:
+        Calculate and return the total stock balance across all products.
+    """
+
+    @blp.response(HTTPStatus.OK)
+    @blp.doc(
+        summary="Total balance of goods in stock",
+        description=(
+            "Compute sum of (price * quantity) for all products. "
+            "Returns a JSON object with the field 'total_balance'."
+        ),
+    )
+    def get(self):
+        """
+        Calculate total balance across all products.
+
+        Returns:
+            JSON: {'total_balance': <float>}
+        Notes:
+            - Uses SQL aggregation for efficiency.
+            - If there are no products, total_balance is 0.0.
+        """
+        try:
+            # Coalesce None to 0.0 when there are no rows
+            total = db.session.query(func.coalesce(func.sum(Product.price * Product.quantity), 0.0)).scalar()
+            # Guard against None due to unexpected DB behavior
+            total_balance = float(total or 0.0)
+            # Round to 2 decimal places for currency-like representation
+            return {"total_balance": round(total_balance, 2)}
+        except Exception as exc:
+            # Generic failure - log could be added here; returning a clear error
+            abort(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                message=f"Failed to calculate total balance: {str(exc)}",
+            )
